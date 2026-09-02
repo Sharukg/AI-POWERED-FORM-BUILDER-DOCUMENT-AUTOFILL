@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Formulate — build a form, drop in a document, done</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F4F1;
+    --panel:#FFFFFF;
+    --ink:#211F1C;
+    --ink-soft:#6B6862;
+    --line:#E4E1DA;
+    --accent:#3B4A9C;
+    --accent-soft:#E9EBF6;
+    --good:#2F7A4D;
+    --good-soft:#E7F3EC;
+    --warn:#B4740E;
+    --warn-soft:#FBEEDC;
+    --bad:#B23B3B;
+    --bad-soft:#FBEAEA;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.brand{font-family:'Space Grotesk',system-ui,sans-serif;}
+  #root{min-height:100vh;}
+
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 32px;border-bottom:1px solid var(--line);
+    background:var(--panel);
+  }
+  .brand{font-size:20px;font-weight:700;letter-spacing:-0.01em;}
+  .brand span{color:var(--accent);}
+  .steps{display:flex;gap:6px;}
+  .step{
+    padding:7px 14px;border-radius:100px;font-size:13.5px;font-weight:500;
+    color:var(--ink-soft);border:1px solid transparent;cursor:pointer;
+  }
+  .step.active{background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  .step.done{color:var(--good);}
+  .step:disabled{cursor:not-allowed;opacity:.45;}
+
+  .shell{max-width:1180px;margin:0 auto;padding:32px;}
+  .lede{color:var(--ink-soft);font-size:15px;max-width:640px;line-height:1.55;margin:2px 0 26px;}
+
+  .workspace{display:grid;grid-template-columns:1.15fr 1fr;gap:24px;align-items:start;}
+  @media (max-width:900px){.workspace{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:22px;
+  }
+  .panel h2{font-size:15px;margin:0 0 4px;font-weight:600;}
+  .panel .sub{font-size:13px;color:var(--ink-soft);margin:0 0 16px;}
+
+  .field-row{
+    border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px;
+    display:flex;flex-direction:column;gap:10px;background:#FCFCFB;
+    cursor:grab;
+  }
+  .field-row.dragging{opacity:.4;}
+  .field-row-top{display:flex;align-items:center;gap:10px;}
+  .drag-handle{color:var(--ink-soft);font-size:14px;cursor:grab;user-select:none;}
+  .field-row input[type=text], .field-row select{
+    flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+    font-size:13.5px;font-family:inherit;background:#fff;
+  }
+  .field-row-meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .req-toggle{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft);}
+  .remove-btn{
+    margin-left:auto;background:none;border:none;color:var(--bad);cursor:pointer;
+    font-size:13px;padding:4px 8px;border-radius:6px;
+  }
+  .remove-btn:hover{background:var(--bad-soft);}
+  .options-input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;}
+
+  .add-field-btn{
+    width:100%;padding:11px;border:1.5px dashed var(--line);border-radius:10px;
+    background:none;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer;
+    margin-top:4px;
+  }
+  .add-field-btn:hover{background:var(--accent-soft);border-color:var(--accent);}
+
+  .toolbar-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .ghost-btn{
+    padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;
+    font-size:13px;font-weight:500;color:var(--ink);cursor:pointer;
+  }
+  .ghost-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  .preview-field{margin-bottom:16px;}
+  .preview-field label{display:block;font-size:13.5px;font-weight:600;margin-bottom:6px;}
+  .req-star{color:var(--bad);margin-left:3px;}
+  .preview-field input, .preview-field select, .preview-field textarea{
+    width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;
+    font-size:14px;font-family:inherit;background:#fff;color:var(--ink);
+  }
+  .preview-field textarea{resize:vertical;min-height:70px;}
+  .empty-note{color:var(--ink-soft);font-size:13.5px;padding:30px 0;text-align:center;}
+
+  .badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;display:inline-block;}
+  .badge.high{background:var(--good-soft);color:var(--good);}
+  .badge.medium{background:var(--warn-soft);color:var(--warn);}
+  .badge.low{background:var(--bad-soft);color:var(--bad);}
+  .badge.missing{background:var(--bad-soft);color:var(--bad);}
+
+  .dropzone{
+    border:1.5px dashed var(--line);border-radius:14px;padding:44px 24px;text-align:center;
+    background:var(--panel);cursor:pointer;transition:border-color .15s;
+  }
+  .dropzone.drag{border-color:var(--accent);background:var(--accent-soft);}
+  .dropzone h3{margin:12px 0 4px;font-size:16px;}
+  .dropzone p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .file-pill{
+    display:inline-flex;align-items:center;gap:8px;margin-top:14px;background:var(--accent-soft);
+    color:var(--accent);padding:6px 12px;border-radius:100px;font-size:13px;font-weight:600;
+  }
+
+  .primary-btn{
+    padding:11px 20px;border-radius:9px;border:none;background:var(--accent);color:#fff;
+    font-weight:600;font-size:14px;cursor:pointer;
+  }
+  .primary-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .primary-btn:hover:not(:disabled){filter:brightness(1.08);}
+
+  .banner{
+    padding:12px 16px;border-radius:10px;font-size:13.5px;margin-bottom:18px;
+  }
+  .banner.error{background:var(--bad-soft);color:var(--bad);}
+  .banner.info{background:var(--accent-soft);color:var(--accent);}
+  .banner.success{background:var(--good-soft);color:var(--good);}
+
+  .spinner{
+    width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
+    border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .review-actions{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;}
+  .checkbox-row{display:flex;align-items:center;gap:8px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+const {
+  useState,
+  useRef,
+  useCallback
+} = React;
+
+// ---- config ----
+const API_BASE = window.TECNOTS_API_BASE || "http://localhost:8000";
+const FIELD_TYPES = [{
+  value: "text",
+  label: "Single-line text"
+}, {
+  value: "textarea",
+  label: "Multi-line text"
+}, {
+  value: "number",
+  label: "Number"
+}, {
+  value: "date",
+  label: "Date"
+}, {
+  value: "dropdown",
+  label: "Dropdown"
+}, {
+  value: "checkbox",
+  label: "Checkbox"
+}];
+function uid() {
+  return "f_" + Math.random().toString(36).slice(2, 10);
+}
+function newField() {
+  return {
+    id: uid(),
+    label: "",
+    type: "text",
+    required: false,
+    options: []
+  };
+}
+
+// ---------------------------------------------------------------------
+// Field row inside the builder (editable, draggable, removable)
+// ---------------------------------------------------------------------
+function FieldRow({
+  field,
+  index,
+  onChange,
+  onRemove,
+  dragProps
+}) {
+  const setLabel = v => onChange({
+    ...field,
+    label: v
+  });
+  const setType = v => onChange({
+    ...field,
+    type: v,
+    options: v === "dropdown" ? field.options : []
+  });
+  const setRequired = v => onChange({
+    ...field,
+    required: v
+  });
+  const setOptions = v => onChange({
+    ...field,
+    options: v.split(",").map(s => s.trim()).filter(Boolean)
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "field-row" + (dragProps.isDragging ? " dragging" : ""),
+    draggable: true,
+    onDragStart: dragProps.onDragStart,
+    onDragOver: dragProps.onDragOver,
+    onDrop: dragProps.onDrop,
+    onDragEnd: dragProps.onDragEnd
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field-row-top"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "drag-handle",
+    title: "Drag to reorder"
+  }, "⠿"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    placeholder: `Field ${index + 1} label, e.g. "Candidate Name"`,
+    value: field.label,
+    onChange: e => setLabel(e.target.value)
+  }), /*#__PURE__*/React.createElement("select", {
+    value: field.type,
+    onChange: e => setType(e.target.value)
+  }, FIELD_TYPES.map(t => /*#__PURE__*/React.createElement("option", {
+    key: t.value,
+    value: t.value
+  }, t.label)))), field.type === "dropdown" && /*#__PURE__*/React.createElement("input", {
+    className: "options-input",
+    type: "text",
+    placeholder: "Dropdown options, comma-separated, e.g. Engineering, Sales, Support",
+    value: field.options.join(", "),
+    onChange: e => setOptions(e.target.value)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "field-row-meta"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "req-toggle"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: field.required,
+    onChange: e => setRequired(e.target.checked)
+  }), "Required"), /*#__PURE__*/React.createElement("button", {
+    className: "remove-btn",
+    onClick: () => onRemove(field.id)
+  }, "Remove field")));
+}
+
+// ---------------------------------------------------------------------
+// Live preview of the form being built
+// ---------------------------------------------------------------------
+function FormPreview({
+  fields,
+  values,
+  onValueChange,
+  editable,
+  flags
+}) {
+  if (fields.length === 0) {
+    return /*#__PURE__*/React.createElement("p", {
+      className: "empty-note"
+    }, "Add a field on the left to see your form take shape here.");
+  }
+  return /*#__PURE__*/React.createElement("div", null, fields.map(f => {
+    const flag = flags && flags[f.id];
+    return /*#__PURE__*/React.createElement("div", {
+      className: "preview-field",
+      key: f.id
+    }, /*#__PURE__*/React.createElement("label", null, f.label || "(untitled field)", f.required && /*#__PURE__*/React.createElement("span", {
+      className: "req-star"
+    }, "*"), flag && flag.confidence && /*#__PURE__*/React.createElement("span", {
+      className: "badge " + flag.confidence,
+      style: {
+        marginLeft: 8
+      }
+    }, flag.confidence, " confidence"), flag && flag.missing && /*#__PURE__*/React.createElement("span", {
+      className: "badge missing",
+      style: {
+        marginLeft: 8
+      }
+    }, "needs input")), renderControl(f, values[f.id], onValueChange, editable));
+  }));
+}
+function renderControl(f, value, onValueChange, editable) {
+  const commonProps = {
+    disabled: !editable,
+    value: value === undefined || value === null ? "" : value,
+    onChange: e => onValueChange(f.id, f.type === "checkbox" ? e.target.checked : e.target.value)
+  };
+  if (f.type === "textarea") return /*#__PURE__*/React.createElement("textarea", commonProps);
+  if (f.type === "number") return /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    ...commonProps
+  });
+  if (f.type === "date") return /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    ...commonProps
+  });
+  if (f.type === "dropdown") {
+    return /*#__PURE__*/React.createElement("select", commonProps, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "Select…"), (f.options || []).map(o => /*#__PURE__*/React.createElement("option", {
+      key: o,
+      value: o
+    }, o)));
+  }
+  if (f.type === "checkbox") {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "checkbox-row"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      disabled: !editable,
+      checked: !!value,
+      onChange: e => onValueChange(f.id, e.target.checked)
+    }));
+  }
+  return /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    ...commonProps
+  });
+}
+
+// ---------------------------------------------------------------------
+// Main app
+// ---------------------------------------------------------------------
+function App() {
+  const [step, setStep] = useState("build"); // build -> upload -> review
+  const [fields, setFields] = useState([]);
+  const [dragIndex, setDragIndex] = useState(null);
+  const [file, setFile] = useState(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadingNote, setLoadingNote] = useState("");
+  const [values, setValues] = useState({});
+  const [flags, setFlags] = useState({}); // {fieldId: {confidence, missing}}
+  const [saveMessage, setSaveMessage] = useState("");
+  const fileInputRef = useRef(null);
+  const importInputRef = useRef(null);
+
+  // ---- field builder actions ----
+  const addField = () => setFields(f => [...f, newField()]);
+  const updateField = updated => setFields(f => f.map(x => x.id === updated.id ? updated : x));
+  const removeField = id => setFields(f => f.filter(x => x.id !== id));
+  const onDragStart = i => () => setDragIndex(i);
+  const onDragOver = i => e => e.preventDefault();
+  const onDrop = i => () => {
+    if (dragIndex === null || dragIndex === i) return;
+    setFields(f => {
+      const copy = [...f];
+      const [moved] = copy.splice(dragIndex, 1);
+      copy.splice(i, 0, moved);
+      return copy;
+    });
+    setDragIndex(null);
+  };
+
+  // ---- templates (bonus) ----
+  const saveTemplate = () => {
+    const name = prompt("Name this template:");
+    if (!name) return;
+    const templates = JSON.parse(localStorage.getItem("tecnots_templates") || "{}");
+    templates[name] = fields;
+    localStorage.setItem("tecnots_templates", JSON.stringify(templates));
+    alert(`Template "${name}" saved.`);
+  };
+  const loadTemplate = () => {
+    const templates = JSON.parse(localStorage.getItem("tecnots_templates") || "{}");
+    const names = Object.keys(templates);
+    if (names.length === 0) return alert("No saved templates yet.");
+    const choice = prompt(`Load which template?\n${names.join("\n")}`);
+    if (choice && templates[choice]) setFields(templates[choice]);
+  };
+  const exportSchema = () => {
+    const blob = new Blob([JSON.stringify(fields, null, 2)], {
+      type: "application/json"
+    });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "form-schema.json";
+    a.click();
+  };
+  const importSchema = e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (Array.isArray(parsed)) setFields(parsed);else alert("That file doesn't look like a valid form schema.");
+      } catch {
+        alert("Couldn't read that file as JSON.");
+      }
+    };
+    reader.readAsText(f);
+    e.target.value = "";
+  };
+
+  // ---- upload ----
+  const ALLOWED = [".pdf", ".png", ".jpg", ".jpeg"];
+  const validateAndSetFile = f => {
+    setUploadError("");
+    if (!f) return;
+    const ext = "." + f.name.split(".").pop().toLowerCase();
+    if (!ALLOWED.includes(ext)) {
+      setUploadError(`"${f.name}" isn't supported. Please upload a PDF, PNG, JPG, or JPEG file.`);
+      setFile(null);
+      return;
+    }
+    setFile(f);
+  };
+  const goToUpload = () => {
+    if (fields.length === 0) {
+      alert("Build the form first — add at least one field before uploading a document.");
+      return;
+    }
+    if (fields.some(f => !f.label.trim())) {
+      alert("Every field needs a label before you continue.");
+      return;
+    }
+    setStep("upload");
+  };
+  const runExtraction = async () => {
+    if (!file) return;
+    setLoading(true);
+    setLoadingNote("Reading your document…");
+    setUploadError("");
+    try {
+      const formData = new FormData();
+      formData.append("schema", JSON.stringify(fields));
+      formData.append("file", file);
+      const res = await fetch(`${API_BASE}/api/extract`, {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Extraction failed.");
+      setLoadingNote("Filling in your form…");
+      const extracted = data.extracted;
+
+      // Reveal fields one by one for a "real-time" fill effect.
+      const order = fields.map(f => f.id);
+      const nextValues = {};
+      const nextFlags = {};
+      for (let i = 0; i < order.length; i++) {
+        const fid = order[i];
+        const entry = extracted[fid] || {
+          value: null,
+          confidence: null,
+          found: false
+        };
+        nextValues[fid] = entry.value === null || entry.value === undefined ? "" : entry.value;
+        const fieldDef = fields.find(f => f.id === fid);
+        nextFlags[fid] = {
+          confidence: entry.found ? entry.confidence : null,
+          missing: !entry.found && fieldDef && fieldDef.required
+        };
+        await new Promise(r => setTimeout(r, 90));
+        setValues(prev => ({
+          ...prev,
+          [fid]: nextValues[fid]
+        }));
+        setFlags(prev => ({
+          ...prev,
+          [fid]: nextFlags[fid]
+        }));
+      }
+      setStep("review");
+    } catch (err) {
+      setUploadError(err.message || "Something went wrong during extraction.");
+    } finally {
+      setLoading(false);
+      setLoadingNote("");
+    }
+  };
+  const onValueChange = (id, v) => {
+    setValues(prev => ({
+      ...prev,
+      [id]: v
+    }));
+    setFlags(prev => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || {}),
+        missing: false
+      }
+    }));
+  };
+  const missingRequired = fields.filter(f => f.required && (values[f.id] === undefined || values[f.id] === "" || values[f.id] === null));
+  const saveForm = () => {
+    const submissions = JSON.parse(localStorage.getItem("tecnots_submissions") || "[]");
+    submissions.push({
+      savedAt: new Date().toISOString(),
+      fields,
+      values
+    });
+    localStorage.setItem("tecnots_submissions", JSON.stringify(submissions));
+    setSaveMessage("Saved. Your completed form is stored locally.");
+  };
+  const downloadSubmission = () => {
+    const blob = new Blob([JSON.stringify({
+      fields,
+      values
+    }, null, 2)], {
+      type: "application/json"
+    });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "completed-form.json";
+    a.click();
+  };
+  const startOver = () => {
+    setStep("build");
+    setFields([]);
+    setFile(null);
+    setValues({});
+    setFlags({});
+    setUploadError("");
+    setSaveMessage("");
+  };
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "topbar"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "brand"
+  }, "Form", /*#__PURE__*/React.createElement("span", null, "ulate")), /*#__PURE__*/React.createElement("div", {
+    className: "steps"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "step " + (step === "build" ? "active" : "done"),
+    onClick: () => setStep("build")
+  }, "1. Build"), /*#__PURE__*/React.createElement("button", {
+    className: "step " + (step === "upload" ? "active" : step === "review" ? "done" : ""),
+    disabled: fields.length === 0,
+    onClick: () => setStep("upload")
+  }, "2. Upload"), /*#__PURE__*/React.createElement("button", {
+    className: "step " + (step === "review" ? "active" : ""),
+    disabled: step !== "review"
+  }, "3. Review & save"))), /*#__PURE__*/React.createElement("div", {
+    className: "shell"
+  }, step === "build" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontSize: 24,
+      margin: "4px 0 6px"
+    }
+  }, "Design your form"), /*#__PURE__*/React.createElement("p", {
+    className: "lede"
+  }, "Add whatever fields this job needs — a candidate application, an invoice, a medical intake. Nothing here is fixed; the AI will read whatever fields you define when it extracts data later."), /*#__PURE__*/React.createElement("div", {
+    className: "workspace"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel"
+  }, /*#__PURE__*/React.createElement("h2", null, "Fields"), /*#__PURE__*/React.createElement("p", {
+    className: "sub"
+  }, "Drag the handle to reorder."), /*#__PURE__*/React.createElement("div", {
+    className: "toolbar-row"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: saveTemplate
+  }, "Save as template"), /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: loadTemplate
+  }, "Load template"), /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: exportSchema
+  }, "Export schema"), /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: () => importInputRef.current.click()
+  }, "Import schema"), /*#__PURE__*/React.createElement("input", {
+    ref: importInputRef,
+    type: "file",
+    accept: "application/json",
+    style: {
+      display: "none"
+    },
+    onChange: importSchema
+  })), fields.map((f, i) => /*#__PURE__*/React.createElement(FieldRow, {
+    key: f.id,
+    field: f,
+    index: i,
+    onChange: updateField,
+    onRemove: removeField,
+    dragProps: {
+      isDragging: dragIndex === i,
+      onDragStart: onDragStart(i),
+      onDragOver: onDragOver(i),
+      onDrop: onDrop(i),
+      onDragEnd: () => setDragIndex(null)
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "add-field-btn",
+    onClick: addField
+  }, "+ Add field")), /*#__PURE__*/React.createElement("div", {
+    className: "panel"
+  }, /*#__PURE__*/React.createElement("h2", null, "Live preview"), /*#__PURE__*/React.createElement("p", {
+    className: "sub"
+  }, "This is what people filling in the form will see."), /*#__PURE__*/React.createElement(FormPreview, {
+    fields: fields,
+    values: {},
+    onValueChange: () => {},
+    editable: false
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "primary-btn",
+    style: {
+      marginTop: 8
+    },
+    onClick: goToUpload
+  }, "Continue to document upload")))), step === "upload" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontSize: 24,
+      margin: "4px 0 6px"
+    }
+  }, "Upload a document"), /*#__PURE__*/React.createElement("p", {
+    className: "lede"
+  }, "Drop in the resume, invoice, or intake sheet this form should be filled from. The AI will look for values matching the ", fields.length, " field", fields.length === 1 ? "" : "s", " you built."), uploadError && /*#__PURE__*/React.createElement("div", {
+    className: "banner error"
+  }, uploadError), /*#__PURE__*/React.createElement("div", {
+    className: "dropzone" + (isDraggingFile ? " drag" : ""),
+    onDragOver: e => {
+      e.preventDefault();
+      setIsDraggingFile(true);
+    },
+    onDragLeave: () => setIsDraggingFile(false),
+    onDrop: e => {
+      e.preventDefault();
+      setIsDraggingFile(false);
+      validateAndSetFile(e.dataTransfer.files[0]);
+    },
+    onClick: () => fileInputRef.current.click()
+  }, /*#__PURE__*/React.createElement("h3", null, "Drag a file here, or click to browse"), /*#__PURE__*/React.createElement("p", null, "PDF, PNG, JPG, or JPEG · up to 12MB"), file && /*#__PURE__*/React.createElement("div", {
+    className: "file-pill"
+  }, "📄 ", file.name), /*#__PURE__*/React.createElement("input", {
+    ref: fileInputRef,
+    type: "file",
+    accept: ".pdf,.png,.jpg,.jpeg",
+    style: {
+      display: "none"
+    },
+    onChange: e => validateAndSetFile(e.target.files[0])
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20,
+      display: "flex",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: () => setStep("build")
+  }, "Back to builder"), /*#__PURE__*/React.createElement("button", {
+    className: "primary-btn",
+    disabled: !file || loading,
+    onClick: runExtraction
+  }, loading && /*#__PURE__*/React.createElement("span", {
+    className: "spinner"
+  }), loading ? loadingNote || "Extracting…" : "Extract & fill form"))), step === "review" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontSize: 24,
+      margin: "4px 0 6px"
+    }
+  }, "Review & save"), /*#__PURE__*/React.createElement("p", {
+    className: "lede"
+  }, "Fields are filled from ", /*#__PURE__*/React.createElement("strong", null, file && file.name), ". Check anything flagged, edit freely, then save."), missingRequired.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "banner error"
+  }, missingRequired.length, " required field", missingRequired.length > 1 ? "s" : "", " still need", missingRequired.length === 1 ? "s" : "", " input: ", missingRequired.map(f => f.label).join(", ")), saveMessage && /*#__PURE__*/React.createElement("div", {
+    className: "banner success"
+  }, saveMessage), /*#__PURE__*/React.createElement("div", {
+    className: "panel",
+    style: {
+      maxWidth: 640
+    }
+  }, /*#__PURE__*/React.createElement(FormPreview, {
+    fields: fields,
+    values: values,
+    onValueChange: onValueChange,
+    editable: true,
+    flags: flags
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "review-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: () => setStep("upload")
+  }, "Back to upload"), /*#__PURE__*/React.createElement("button", {
+    className: "primary-btn",
+    onClick: saveForm
+  }, "Save completed form"), /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: downloadSubmission
+  }, "Download as JSON"), /*#__PURE__*/React.createElement("button", {
+    className: "ghost-btn",
+    onClick: startOver
+  }, "Start a new form"))))));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+</script>
+</body>
+</html>
