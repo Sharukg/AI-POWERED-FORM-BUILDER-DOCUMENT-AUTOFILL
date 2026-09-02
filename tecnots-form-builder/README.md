@@ -1,11 +1,4 @@
 # Formulate — AI-Powered Form Builder & Document Autofill
-
-Built for the Tecnots AI Engineer Internship technical assessment, Question 1.
-
-A user builds a form from scratch (any fields, any types), uploads a document (PDF/PNG/JPG),
-and the app uses Claude to read the document and fill the form according to whatever schema
-the user defined — no hardcoded fields anywhere.
-
 ## Project structure
 
 ```
@@ -113,17 +106,6 @@ path with completely different fields.
 | Corrupted or unsupported file | Client rejects wrong extensions immediately; server also validates the file actually opens (PDF via PyMuPDF, image via Pillow) and returns a clear 400 error if not |
 | Number field with no numeric value found | Model is instructed to return `null`, which renders as blank rather than "0" or a guess |
 | Model isn't confident about a field | Explicit prompt rule: null value + `found: false` instead of a low-confidence fill |
-
-## Bonus features implemented
-
-- ✅ Confidence indicators (High/Medium/Low badges in review)
-- ✅ Drag-and-drop field reordering in the builder
-- ✅ Form templates (save/load via `localStorage`)
-- ✅ Export form schema (download JSON)
-- ✅ Import form schema (upload JSON to restore a form)
-- ✅ Real-time-feeling extraction (fields populate one by one after the single extraction call
-  returns — noted as simulated reveal, not token-level streaming, since the extraction result
-  needs to be a complete, validated JSON object before it's safe to trust any one field)
 
 ## Assumptions & trade-offs
 
