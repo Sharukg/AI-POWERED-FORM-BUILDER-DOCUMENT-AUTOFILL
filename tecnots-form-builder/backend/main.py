@@ -1,5 +1,4 @@
 """
-Tecnots AI Engineer Assessment — Question 1
 AI-Powered Form Builder & Document Autofill — Backend (Google Gemini version)
 
 Responsibilities of this backend:
